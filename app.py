@@ -5,7 +5,7 @@ from abc_algorithm import artificial_bee_colony
 
 st.set_page_config(page_title="ABC Exam Timetabling", layout="wide")
 
-st.title("🐝 Exam Room Optimization using ABC Algorithm")
+st.title("Exam Room Optimization using ABC Algorithm")
 
 # Load data
 classrooms = pd.read_csv("classrooms.csv")
