@@ -51,7 +51,7 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit):
             best_fitness = current_best
             best_solution = population[fitness_values.index(current_best)]
 
-        # ⬅️ INI buat graf BERPERINGKAT
+        
         convergence_curve.append(best_fitness)
 
     return best_solution, best_fitness, convergence_curve
