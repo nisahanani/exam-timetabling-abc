@@ -48,11 +48,6 @@ course_code = dict(zip(exams["exam_id"], exams["course_code"]))
 # Cost & Metrics
 # ==============================
 def calculate_cost(schedule, alpha, beta):
-    """
-    Multi-objective cost function:
-    - Hard: capacity violations
-    - Soft: wasted capacity
-    """
     capacity_violations = 0
     wasted_capacity = 0
 
@@ -61,9 +56,9 @@ def calculate_cost(schedule, alpha, beta):
         capacity = room_capacity[room]
 
         if students > capacity:
-            capacity_violations += (students - capacity)  # hard constraint penalty
+            capacity_violations += 1
         else:
-            wasted_capacity += (capacity - students)  # soft constraint
+            wasted_capacity += (capacity - students)
 
     total_cost = alpha * capacity_violations + beta * wasted_capacity
     return total_cost, capacity_violations, wasted_capacity
@@ -82,7 +77,7 @@ def neighbor_solution(solution):
     new_solution = solution.copy()
     exam = random.choice(exam_ids)
 
-    # 30% chance to assign smaller room -> create possible violation
+    # 30% chance to intentionally pick a too-small room to create a violation
     if random.random() < 0.3:
         smaller_rooms = [r for r in room_ids if room_capacity[r] < num_students[exam]]
         if smaller_rooms:
@@ -90,7 +85,7 @@ def neighbor_solution(solution):
         else:
             new_solution[exam] = random.choice(room_ids)
     else:
-        # smart assignment: pick closest-fit room
+        # Pick the closest-fit room (safe)
         room_options = sorted(room_ids, key=lambda r: abs(room_capacity[r] - num_students[exam]))
         new_solution[exam] = room_options[0]
 
@@ -193,7 +188,7 @@ if st.button("🚀 Run ABC Optimization"):
     fig, ax = plt.subplots()
     ax.plot(history)
     ax.set_xlabel("Cycle")
-    ax.set_ylabel("Total Cost")
+    ax.set_ylabel("Cost")
     ax.set_title("ABC Convergence Curve")
     st.pyplot(fig)
 
