@@ -171,7 +171,7 @@ st.info(
     "This project demonstrates multi-objective optimization in exam scheduling "
     "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
     "using ABC (Artificial Bee Colony)."
-)-objective optimization in exam scheduling "
+    "objective optimization in exam scheduling "
     "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
     "using ABC (Artificial Bee Colony)."
 )
