@@ -16,7 +16,7 @@ exam_file = "exam_timeslot.csv"
 room_file = "classrooms.csv"
 
 # Load exam dataset
-try
+try:
     exams_df = pd.read_csv(exam_file)
     st.success("Exam dataset loaded successfully!")
     st.dataframe(exams_df)
