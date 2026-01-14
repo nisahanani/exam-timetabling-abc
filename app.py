@@ -12,11 +12,11 @@ st.title("University Exam Scheduling using ABC (Artificial Bee Colony)")
 st.subheader("Exam and Classroom Dataset")
 
 # Set your full file paths here
-exam_file = "C:/Users/ASUS/Documents/ce project/exam_timeslot.csv"
-room_file = "C:/Users/ASUS/Documents/ce project/classrooms.csv"
+exam_file = "exam_timeslot.csv"
+room_file = "classrooms.csv"
 
 # Load exam dataset
-try:
+try
     exams_df = pd.read_csv(exam_file)
     st.success("Exam dataset loaded successfully!")
     st.dataframe(exams_df)
