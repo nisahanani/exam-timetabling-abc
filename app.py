@@ -171,7 +171,7 @@ beta = st.sidebar.slider("Wasted Capacity Weight (β)", 1, 20, 5)
 if st.button("🚀 Run ABC Optimization"):
     with st.spinner("Running Artificial Bee Colony..."):
         best_solution, best_cost, history, elapsed = artificial_bee_colony(
-            colony_size, max_cycles, scout_limit, alpha, beta
+            colony_size, max_iteration, scout_limit, alpha, beta
         )
 
     cost, cap_violations, wasted = calculate_cost(best_solution, alpha, beta)
