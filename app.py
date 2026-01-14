@@ -12,9 +12,9 @@ st.set_page_config(page_title="Exam Scheduling using ABC", layout="wide")
 st.title("🐝 University Exam Scheduling using Artificial Bee Colony (ABC)")
 
 st.write(
-    "This system optimizes university exam timetabling using the Artificial Bee Colony (ABC) algorithm. "
-    "Hard constraints such as room capacity, room-type compatibility, and room–timeslot conflicts are enforced, "
-    "while classroom utilization efficiency is optimized as a soft objective."
+    "This system optimizes university exam scheduling using the Artificial Bee Colony (ABC) algorithm. "
+    "Hard constraints such as room capacity, room–timeslot conflict, and room-type compatibility are enforced. "
+    "A minimum seating safety margin is also applied to avoid overly tight room allocations."
 )
 
 # ======================================================
@@ -43,24 +43,25 @@ room_ids = rooms["classroom_id"].tolist()
 num_students = dict(zip(exams["exam_id"], exams["num_students"]))
 exam_day = dict(zip(exams["exam_id"], exams["exam_day"]))
 exam_time = dict(zip(exams["exam_id"], exams["exam_time"]))
-exam_type = dict(zip(exams["exam_id"], exams["exam_type"]))  # theory / practical
+exam_type = dict(zip(exams["exam_id"], exams["exam_type"]))   # theory / practical
 course_code = dict(zip(exams["exam_id"], exams["course_code"]))
 
 room_capacity = dict(zip(rooms["classroom_id"], rooms["capacity"]))
 room_type = dict(zip(rooms["classroom_id"], rooms["room_type"]))  # lecture / lab
 
 # ======================================================
-# Cost Function (MATCHES OBJECTIVE)
+# Cost Function (WITH OPTION C)
 # ======================================================
-def calculate_cost(schedule, alpha, beta, gamma, delta):
+def calculate_cost(schedule, alpha, beta, gamma, delta, safety_margin):
     """
     Hard constraints:
-      - Room capacity violation
-      - Room–timeslot conflict
-      - Room-type incompatibility
+    - Room capacity violation
+    - Room–timeslot conflict
+    - Room-type incompatibility
+    - Safety margin violation (Option C)
 
     Soft objective:
-      - Minimize wasted classroom capacity (normalized)
+    - Minimize wasted classroom capacity (normalized)
     """
     capacity_violations = 0
     timeslot_conflicts = 0
@@ -72,20 +73,24 @@ def calculate_cost(schedule, alpha, beta, gamma, delta):
     for exam, room in schedule.items():
         students = num_students[exam]
         capacity = room_capacity[room]
+        empty_seats = capacity - students
 
-        # Capacity constraint
-        if students > capacity:
+        # ---------------- Capacity & Safety Margin ----------------
+        if empty_seats < 0:
             capacity_violations += 1
+        elif empty_seats < safety_margin:
+            capacity_violations += 1
+            wasted_capacity += empty_seats / capacity
         else:
-            wasted_capacity += (capacity - students) / capacity
+            wasted_capacity += empty_seats / capacity
 
-        # Room-type compatibility
+        # ---------------- Room-Type Compatibility ----------------
         if exam_type[exam] == "practical" and room_type[room] != "lab":
             type_violations += 1
         if exam_type[exam] == "theory" and room_type[room] == "lab":
             type_violations += 1
 
-        # Room–timeslot conflict
+        # ---------------- Room–Timeslot Conflict ----------------
         key = (room, exam_day[exam], exam_time[exam])
         if key in used_rooms:
             timeslot_conflicts += 1
@@ -99,27 +104,32 @@ def calculate_cost(schedule, alpha, beta, gamma, delta):
         beta * wasted_capacity
     )
 
-    return total_cost, capacity_violations, timeslot_conflicts, type_violations, wasted_capacity
+    return (
+        total_cost,
+        capacity_violations,
+        timeslot_conflicts,
+        type_violations,
+        wasted_capacity
+    )
 
 
-def fitness(schedule, alpha, beta, gamma, delta):
-    cost, *_ = calculate_cost(schedule, alpha, beta, gamma, delta)
+def fitness(schedule, alpha, beta, gamma, delta, safety_margin):
+    cost, *_ = calculate_cost(schedule, alpha, beta, gamma, delta, safety_margin)
     return 1 / (1 + cost)
 
 # ======================================================
 # ABC Helper Functions
 # ======================================================
 def generate_solution():
-    """Random initial solution"""
+    """Random initial assignment"""
     return {exam: random.choice(room_ids) for exam in exam_ids}
 
 
 def generate_neighbor(solution):
-    """Local search: change one exam's room"""
+    """Local search: modify ONE exam's room"""
     neighbor = solution.copy()
     exam = random.choice(exam_ids)
 
-    # Prefer compatible rooms but allow exploration
     compatible_rooms = [
         r for r in room_ids
         if (exam_type[exam] == "practical" and room_type[r] == "lab") or
@@ -136,7 +146,10 @@ def generate_neighbor(solution):
 # ======================================================
 # Artificial Bee Colony Algorithm
 # ======================================================
-def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta, gamma, delta):
+def artificial_bee_colony(
+    colony_size, max_cycles, scout_limit,
+    alpha, beta, gamma, delta, safety_margin
+):
     start_time = time.time()
 
     food_sources = [generate_solution() for _ in range(colony_size)]
@@ -151,14 +164,18 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta, gam
         # -------- EMPLOYED BEES --------
         for i in range(colony_size):
             candidate = generate_neighbor(food_sources[i])
-            if fitness(candidate, alpha, beta, gamma, delta) > fitness(food_sources[i], alpha, beta, gamma, delta):
+            if fitness(candidate, alpha, beta, gamma, delta, safety_margin) > \
+               fitness(food_sources[i], alpha, beta, gamma, delta, safety_margin):
                 food_sources[i] = candidate
                 trials[i] = 0
             else:
                 trials[i] += 1
 
         # -------- ONLOOKER BEES --------
-        fitness_values = [fitness(sol, alpha, beta, gamma, delta) for sol in food_sources]
+        fitness_values = [
+            fitness(sol, alpha, beta, gamma, delta, safety_margin)
+            for sol in food_sources
+        ]
         total_fitness = sum(fitness_values)
 
         for _ in range(colony_size):
@@ -168,7 +185,8 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta, gam
                 acc += fit
                 if acc >= r:
                     candidate = generate_neighbor(food_sources[i])
-                    if fitness(candidate, alpha, beta, gamma, delta) > fitness(food_sources[i], alpha, beta, gamma, delta):
+                    if fitness(candidate, alpha, beta, gamma, delta, safety_margin) > \
+                       fitness(food_sources[i], alpha, beta, gamma, delta, safety_margin):
                         food_sources[i] = candidate
                         trials[i] = 0
                     else:
@@ -183,7 +201,9 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta, gam
 
         # -------- BEST SOLUTION --------
         for sol in food_sources:
-            cost, *_ = calculate_cost(sol, alpha, beta, gamma, delta)
+            cost, *_ = calculate_cost(
+                sol, alpha, beta, gamma, delta, safety_margin
+            )
             if cost < best_cost:
                 best_cost = cost
                 best_solution = sol
@@ -202,11 +222,15 @@ colony_size = st.sidebar.slider("Colony Size", 10, 100, 40, 5)
 max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
 scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 15, 5)
 
-st.sidebar.markdown("### Cost Weights")
-alpha = st.sidebar.slider("Capacity Violation (α)", 50, 200, 100)
+st.sidebar.markdown("### Constraint Weights")
+alpha = st.sidebar.slider("Capacity & Safety Violation (α)", 50, 200, 100)
 gamma = st.sidebar.slider("Timeslot Conflict (γ)", 50, 200, 100)
 delta = st.sidebar.slider("Room-Type Violation (δ)", 50, 200, 100)
 beta = st.sidebar.slider("Wasted Capacity (β)", 1, 20, 5)
+
+safety_margin = st.sidebar.slider(
+    "Minimum Empty Seats (Safety Margin)", 0, 20, 5
+)
 
 # ======================================================
 # Run ABC
@@ -215,13 +239,21 @@ if st.button("🚀 Run ABC Optimization"):
 
     with st.spinner("Running Artificial Bee Colony..."):
         best_solution, best_cost, history, elapsed = artificial_bee_colony(
-            colony_size, max_cycles, scout_limit, alpha, beta, gamma, delta
+            colony_size, max_cycles, scout_limit,
+            alpha, beta, gamma, delta, safety_margin
         )
 
-    cost, cap_v, time_v, type_v, wasted = calculate_cost(
-        best_solution, alpha, beta, gamma, delta
+    (
+        cost,
+        cap_v,
+        time_v,
+        type_v,
+        wasted
+    ) = calculate_cost(
+        best_solution, alpha, beta, gamma, delta, safety_margin
     )
 
+    # ---------------- Results ----------------
     st.subheader("📌 Final Optimization Results")
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Total Cost", round(cost, 3))
@@ -230,7 +262,8 @@ if st.button("🚀 Run ABC Optimization"):
     c4.metric("Room-Type Violations", type_v)
     c5.metric("Wasted Capacity", round(wasted, 3))
 
-    st.subheader("📈 Convergence Curve")
+    # ---------------- Convergence ----------------
+    st.subheader("📈 Convergence Curve (Cost)")
     fig, ax = plt.subplots()
     ax.plot(history)
     ax.set_xlabel("Cycle")
@@ -238,6 +271,7 @@ if st.button("🚀 Run ABC Optimization"):
     ax.set_title("ABC Cost Convergence")
     st.pyplot(fig)
 
+    # ---------------- Final Schedule ----------------
     st.subheader("🗓️ Optimized Exam Schedule")
     result_df = pd.DataFrame([
         {
