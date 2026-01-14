@@ -17,6 +17,12 @@ st.write(
 )
 
 # ==============================
+# Set Random Seed for Reproducibility
+# ==============================
+SEED = 42
+random.seed(SEED)
+
+# ==============================
 # Load Data
 # ==============================
 @st.cache_data
@@ -73,8 +79,9 @@ def generate_solution():
 
 def neighbor_solution(solution):
     new_solution = solution.copy()
-    exam = random.choice(exam_ids)
-    new_solution[exam] = random.choice(room_ids)
+    for _ in range(2):  # Modify 2 exams randomly
+        exam = random.choice(exam_ids)
+        new_solution[exam] = random.choice(room_ids)
     return new_solution
 
 # ==============================
@@ -85,7 +92,7 @@ def artificial_bee_colony(
 ):
     start_time = time.time()
 
-    # Initialize food sources (solutions)
+    # Initialize food sources
     food_sources = [generate_solution() for _ in range(num_food_sources)]
     trials = [0] * num_food_sources
 
@@ -108,7 +115,7 @@ def artificial_bee_colony(
         probabilities = [fitness(sol, alpha, beta) for sol in food_sources]
         total_prob = sum(probabilities)
 
-        for _ in range(num_bees):
+        for _ in range(num_food_sources):
             r = random.uniform(0, total_prob)
             acc = 0
             for i, prob in enumerate(probabilities):
@@ -145,10 +152,10 @@ def artificial_bee_colony(
 # ==============================
 st.sidebar.header("ABC Parameters")
 
-num_bees = st.sidebar.slider("Number of Bees", 10, 100, 40, 5)
-num_food_sources = st.sidebar.slider("Number of Food Sources", 5, 50, 20, 5)
+num_bees = st.sidebar.slider("Number of Bees", 10, 100, 30, 5)
+num_food_sources = st.sidebar.slider("Number of Food Sources", 5, 50, 15, 1)
 max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
-scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 10, 5)
+scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 20, 5)
 
 st.sidebar.markdown("### Objective Weights")
 alpha = st.sidebar.slider("Capacity Violation Weight (α)", 10, 100, 50)
