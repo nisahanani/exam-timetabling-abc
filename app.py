@@ -1,163 +1,216 @@
-# University Exam Scheduling using Artificial Bee Colony (ABC) and Streamlit
 import streamlit as st
 import pandas as pd
 import random
-import math
-import os
 import time
+import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Exam Scheduling with ABC", layout="wide")
-st.title("University Exam Scheduling using Artificial Bee Colony (ABC)")
+# ==============================
+# Page Configuration
+# ==============================
+st.set_page_config(page_title="Exam Scheduling using ABC", layout="wide")
 
-# -------------------- Load Datasets --------------------
-st.subheader("Exam and Classroom Dataset")
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+st.title("🐝 University Exam Scheduling using Artificial Bee Colony")
+st.write(
+    "This application optimizes university exam timetables using the "
+    "Artificial Bee Colony (ABC) algorithm while considering student numbers "
+    "and classroom capacity constraints."
+)
 
-# Exam dataset
-exam_file = os.path.join(BASE_DIR, "exam_timeslot.csv")
-if os.path.exists(exam_file):
-    exams_df = pd.read_csv(exam_file)
-    st.success("Exam dataset loaded successfully!")
-    st.dataframe(exams_df)
-else:
-    st.error(f"Exam dataset not found at: {exam_file}")
-    st.stop()
+# ==============================
+# Load Data
+# ==============================
+@st.cache_data
+def load_data():
+    exams = pd.read_csv("exam_timeslot.csv")
+    rooms = pd.read_csv("classrooms.csv")
+    return exams, rooms
 
-# Classroom dataset
-room_file = os.path.join(BASE_DIR, "classrooms.csv")
-if os.path.exists(room_file):
-    rooms_df = pd.read_csv(room_file)
-    st.success("Classroom dataset loaded successfully!")
-    st.dataframe(rooms_df)
-else:
-    st.error(f"Classroom dataset not found at: {room_file}")
-    st.stop()
+exams, rooms = load_data()
 
-# -------------------- Convert Datasets --------------------
-exam_ids = exams_df["exam_id"].tolist()
-room_ids = rooms_df["classroom_id"].tolist()
-exam_students = dict(zip(exams_df["exam_id"], exams_df["num_students"]))
-room_capacity = dict(zip(rooms_df["classroom_id"], rooms_df["capacity"]))
+# Normalize columns
+exams.columns = exams.columns.str.lower()
+rooms.columns = rooms.columns.str.lower()
 
-# -------------------- Cost Function --------------------
+# ==============================
+# Prepare Data
+# ==============================
+exam_ids = exams["exam_id"].tolist()
+room_ids = rooms["classroom_id"].tolist()
+
+num_students = dict(zip(exams["exam_id"], exams["num_students"]))
+room_capacity = dict(zip(rooms["classroom_id"], rooms["capacity"]))
+
+course_code = dict(zip(exams["exam_id"], exams["course_code"]))
+
+# ==============================
+# Cost & Metrics
+# ==============================
 def calculate_cost(schedule, alpha, beta):
-    capacity_violation = 0
+    capacity_violations = 0
     wasted_capacity = 0
-    for exam_id, room_id in schedule.items():
-        students = exam_students[exam_id]
-        capacity = room_capacity[room_id]
-        if capacity < students:
-            capacity_violation += (students - capacity)
+
+    for exam, room in schedule.items():
+        students = num_students[exam]
+        capacity = room_capacity[room]
+
+        if students > capacity:
+            capacity_violations += 1
         else:
             wasted_capacity += (capacity - students)
-    total_cost = alpha * capacity_violation + beta * wasted_capacity
-    return total_cost
 
-# -------------------- ABC Helper Functions --------------------
-def generate_solution(exams, rooms):
-    solution = {}
-    for exam_id in exams:
-        solution[exam_id] = random.choice(rooms)
-    return solution
+    total_cost = alpha * capacity_violations + beta * wasted_capacity
+    return total_cost, capacity_violations, wasted_capacity
 
-def fitness_function(schedule, alpha, beta):
-    """Higher fitness = better solution"""
-    cost = calculate_cost(schedule, alpha, beta)
-    return 10000 / (1 + cost)  # scale fitness
+def fitness(schedule, alpha, beta):
+    cost, _, _ = calculate_cost(schedule, alpha, beta)
+    return 1 / (1 + cost)
 
-# -------------------- Artificial Bee Colony Algorithm --------------------
-def artificial_bee_colony(exams, rooms, alpha, beta,
-                          num_bees=40, num_food_sources=30,
-                          scout_limit=10, max_iter=150):
-    
+# ==============================
+# ABC Helper Functions
+# ==============================
+def generate_solution():
+    return {exam: random.choice(room_ids) for exam in exam_ids}
+
+def neighbor_solution(solution):
+    new_solution = solution.copy()
+    exam = random.choice(exam_ids)
+    new_solution[exam] = random.choice(room_ids)
+    return new_solution
+
+# ==============================
+# Artificial Bee Colony Algorithm
+# ==============================
+def artificial_bee_colony(
+    colony_size, max_cycles, scout_limit, alpha, beta
+):
     start_time = time.time()
-    
-    # Initial population
-    population = [generate_solution(exams, rooms) for _ in range(num_bees)]
-    fitness_values = [fitness_function(sol, alpha, beta) for sol in population]
-    
-    best_index = fitness_values.index(max(fitness_values))
-    best_solution = population[best_index]
-    best_cost = calculate_cost(best_solution, alpha, beta)
-    
-    convergence_curve = []
-    trial_counter = [0] * num_bees
-    
-    for iteration in range(max_iter):
+
+    food_sources = [generate_solution() for _ in range(colony_size)]
+    trials = [0] * colony_size
+
+    best_solution = None
+    best_cost = float("inf")
+    convergence = []
+
+    for cycle in range(max_cycles):
+
         # Employed Bees Phase
-        for i in range(num_bees):
-            candidate = generate_solution(exams, rooms)
-            candidate_fitness = fitness_function(candidate, alpha, beta)
-            if candidate_fitness > fitness_values[i]:
-                population[i] = candidate
-                fitness_values[i] = candidate_fitness
-                trial_counter[i] = 0
+        for i in range(colony_size):
+            candidate = neighbor_solution(food_sources[i])
+            if fitness(candidate, alpha, beta) > fitness(food_sources[i], alpha, beta):
+                food_sources[i] = candidate
+                trials[i] = 0
             else:
-                trial_counter[i] += 1
-        
+                trials[i] += 1
+
+        # Onlooker Bees Phase
+        probabilities = [
+            fitness(sol, alpha, beta) for sol in food_sources
+        ]
+        total_prob = sum(probabilities)
+
+        for _ in range(colony_size):
+            r = random.uniform(0, total_prob)
+            acc = 0
+            for i, prob in enumerate(probabilities):
+                acc += prob
+                if acc >= r:
+                    candidate = neighbor_solution(food_sources[i])
+                    if fitness(candidate, alpha, beta) > fitness(food_sources[i], alpha, beta):
+                        food_sources[i] = candidate
+                        trials[i] = 0
+                    else:
+                        trials[i] += 1
+                    break
+
         # Scout Bees Phase
-        for i in range(num_bees):
-            if trial_counter[i] > scout_limit:
-                population[i] = generate_solution(exams, rooms)
-                fitness_values[i] = fitness_function(population[i], alpha, beta)
-                trial_counter[i] = 0
-        
-        # Update best solution
-        current_best_index = fitness_values.index(max(fitness_values))
-        current_best_cost = calculate_cost(population[current_best_index], alpha, beta)
-        if current_best_cost < best_cost:
-            best_cost = current_best_cost
-            best_solution = population[current_best_index]
-        
-        convergence_curve.append(best_cost)
-    
+        for i in range(colony_size):
+            if trials[i] > scout_limit:
+                food_sources[i] = generate_solution()
+                trials[i] = 0
+
+        # Best Solution Update
+        for sol in food_sources:
+            cost, _, _ = calculate_cost(sol, alpha, beta)
+            if cost < best_cost:
+                best_cost = cost
+                best_solution = sol
+
+        convergence.append(best_cost)
+
     elapsed = time.time() - start_time
-    return best_solution, best_cost, convergence_curve, elapsed
+    return best_solution, best_cost, convergence, elapsed
 
-# -------------------- Streamlit Interface --------------------
-st.subheader("ABC Parameters")
-col1, col2 = st.columns(2)
+# ==============================
+# Sidebar Parameters
+# ==============================
+st.sidebar.header("ABC Parameters")
 
-with col1:
-    num_bees = st.number_input("Number of Bees", 10, 100, 40, step=5)
-    num_food_sources = st.number_input("Number of Food Sources", 5, 50, 30, step=1)
-    max_iter = st.number_input("Max Iterations (Cycles)", 10, 200, 150, step=5)
+colony_size = st.sidebar.slider("Colony Size", 10, 100, 40, 5)
+max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
+scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 10, 5)
 
-with col2:
-    scout_limit = st.number_input("Scout Limit", 1, 50, 10)
-    alpha = st.slider("Weight Capacity Violation (α)", 10, 100, 50)
-    beta = st.slider("Weight Wasted Capacity (β)", 1, 20, 5)
+st.sidebar.markdown("### Objective Weights")
+alpha = st.sidebar.slider("Capacity Violation Weight (α)", 10, 100, 50)
+beta = st.sidebar.slider("Wasted Capacity Weight (β)", 1, 20, 5)
 
-# -------------------- Run ABC --------------------
-if st.button("Run ABC"):
-    best_schedule, best_cost, history, elapsed = artificial_bee_colony(
-        exam_ids, room_ids, alpha, beta,
-        num_bees, num_food_sources, scout_limit, max_iter
-    )
-    
-    st.write(f"ABC completed in {elapsed:.2f} seconds")
-    st.write(f"Final Best Cost: {best_cost}")
-    
-    # Display final schedule
+# ==============================
+# Run Button
+# ==============================
+if st.button("🚀 Run ABC Optimization"):
+
+    with st.spinner("Running Artificial Bee Colony Optimization..."):
+        best_solution, best_cost, history, elapsed = artificial_bee_colony(
+            colony_size, max_cycles, scout_limit, alpha, beta
+        )
+
+    cost, cap_violations, wasted = calculate_cost(best_solution, alpha, beta)
+
+    # ==============================
+    # Metrics
+    # ==============================
+    st.subheader("📌 Final Optimization Results")
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Final Cost", round(cost, 2))
+    col2.metric("Capacity Violations", cap_violations)
+    col3.metric("Wasted Capacity", wasted)
+
+    # ==============================
+    # Convergence Curve
+    # ==============================
+    st.subheader("📈 ABC Convergence Curve")
+    fig, ax = plt.subplots()
+    ax.plot(history)
+    ax.set_xlabel("Cycle")
+    ax.set_ylabel("Cost")
+    ax.set_title("ABC Convergence Curve")
+    st.pyplot(fig)
+
+    # ==============================
+    # Final Schedule
+    # ==============================
+    st.subheader("🗓️ Optimized Exam Schedule")
+
     result_df = pd.DataFrame([
-        {"Exam ID": e, "Students": exam_students[e],
-         "Classroom": r, "Room Capacity": room_capacity[r]}
-        for e, r in best_schedule.items()
+        {
+            "Exam ID": e,
+            "Course Code": course_code[e],
+            "Students": num_students[e],
+            "Classroom": r,
+            "Room Capacity": room_capacity[r]
+        }
+        for e, r in best_solution.items()
     ])
-    st.subheader("Final Exam Schedule")
-    st.dataframe(result_df)
-    
-    # Save CSV
-    output_csv = os.path.join(BASE_DIR, "abc_exam_schedule.csv")
-    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
-    result_df.to_csv(output_csv, index=False)
-    st.success(f"Final schedule saved to {output_csv}")
-    
-    # Plot convergence
-    st.subheader("Convergence Curve")
-    st.line_chart(history)
 
-st.info(
-    "This project demonstrates multi-objective optimization in exam scheduling "
-    "by balancing capacity violations and wasted classroom capacity using ABC."
+    st.dataframe(result_df, use_container_width=True)
+
+# ==============================
+# Footer
+# ==============================
+st.markdown(
+    "---\n"
+    "**Course:** JIE42903 – Evolutionary Computing  \n"
+    "**Algorithm:** Artificial Bee Colony (ABC)  \n"
+    "**Case Study:** University Exam Scheduling"
 )
