@@ -1,25 +1,21 @@
-def calculate_fitness(schedule, alpha=50, beta=5):
-    """
-    Fitness function aligned with project objectives:
-    - Hard constraint: capacity violation
-    - Soft constraint: wasted classroom capacity
-    """
-
+def calculate_cost(schedule):
     capacity_violation = 0
     wasted_capacity = 0
 
     for s in schedule:
-        students = s["num_students"]
-        capacity = s["capacity"]
-
-        if capacity < students:
-            capacity_violation += (students - capacity)
+        if s["num_students"] > s["capacity"]:
+            capacity_violation += (s["num_students"] - s["capacity"])
         else:
-            wasted_capacity += (capacity - students)
+            wasted_capacity += (s["capacity"] - s["num_students"])
 
+    # Objectives
+    alpha = 50
+    beta = 5
     total_cost = alpha * capacity_violation + beta * wasted_capacity
+    return total_cost
 
-    # ABC maximizes fitness, so convert cost to fitness
-    fitness = 1 / (1 + total_cost)
 
-    return fitness
+def calculate_fitness(schedule):
+    cost = calculate_cost(schedule)
+    fitness = 1 / (1 + cost)
+    return fitness, cost
