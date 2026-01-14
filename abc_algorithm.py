@@ -19,10 +19,17 @@ def generate_solution(exams, rooms):
 
 def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit):
     population = [generate_solution(exams, rooms) for _ in range(num_bees)]
-    fitness_values = [calculate_fitness(sol) for sol in population]
+   fitness_values = []
+cost_values = []
 
-    best_solution = population[fitness_values.index(max(fitness_values))]
-    best_fitness = max(fitness_values)
+for sol in population:
+    fitness, cost = calculate_fitness(sol)
+    fitness_values.append(fitness)
+    cost_values.append(cost)
+
+    best_index = cost_values.index(min(cost_values))
+    best_solution = population[best_index]
+    best_cost = cost_values[best_index]
 
     convergence_curve = []
     trial_counter = [0] * num_bees
@@ -30,11 +37,12 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit):
     for iteration in range(max_iter):
         for i in range(num_bees):
             candidate = generate_solution(exams, rooms)
-            candidate_fitness = calculate_fitness(candidate)
+            candidate_fitness, candidate_cost = calculate_fitness(candidate)
 
             if candidate_fitness > fitness_values[i]:
                 population[i] = candidate
                 fitness_values[i] = candidate_fitness
+                cost value[i] = candidate_cost
                 trial_counter[i] = 0
             else:
                 trial_counter[i] += 1
@@ -44,6 +52,8 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit):
             if trial_counter[i] > scout_limit:
                 population[i] = generate_solution(exams, rooms)
                 fitness_values[i] = calculate_fitness(population[i])
+                fitness_values[i]= fitness
+                cost_values[i] = cost
                 trial_counter[i] = 0
 
         current_best = max(fitness_values)
@@ -52,6 +62,6 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit):
             best_solution = population[fitness_values.index(current_best)]
 
         
-        convergence_curve.append(best_fitness)
+        convergence_curve.append(best_cost)
 
-    return best_solution, best_fitness, convergence_curve
+    return best_solution, best_cost, convergence_curve
