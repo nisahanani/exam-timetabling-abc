@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import random
+import numpy as np
 import time
 import matplotlib.pyplot as plt
 import os
@@ -165,6 +166,13 @@ st.sidebar.markdown("### Objective Weights")
 alpha = st.sidebar.slider("Capacity Violation Weight (α)", 10, 100, 50)
 beta = st.sidebar.slider("Wasted Capacity Weight (β)", 1, 20, 5)
 
+# Reproducible option
+reproducible = st.sidebar.checkbox("Reproducible Run (Fix Random Seed)", value=False)
+if reproducible:
+    seed = st.sidebar.number_input("Random Seed", value=42, step=1)
+    random.seed(seed)
+    np.random.seed(seed)
+
 # ==============================
 # Run ABC
 # ==============================
@@ -194,7 +202,7 @@ if st.button("🚀 Run ABC Optimization"):
     fig, ax = plt.subplots()
     ax.plot(history)
     ax.set_xlabel("Iteration")
-    ax.set_ylabel("Best Fitness")
+    ax.set_ylabel("Best Cost")
     ax.set_title("ABC Convergence Curve")
     st.pyplot(fig)
 
