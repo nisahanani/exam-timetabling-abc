@@ -3,35 +3,34 @@
 import streamlit as st
 import pandas as pd
 import random
-import os
 import time
 
 st.set_page_config(page_title="Exam Scheduling with ABC", layout="wide")
 st.title("University Exam Scheduling using ABC (Artificial Bee Colony)")
 
-# -------------------- Load Datasets --------------------
+# -------------------- Load Datasets (Direct Paths) --------------------
 st.subheader("Exam and Classroom Dataset")
 
-BASE_DIR = os.path.dirname(os.path.abspath(file))
+# Set your full file paths here
+exam_file = "exam_timeslot.csv"
+room_file = "classrooms.csv"
 
-# Exam dataset
-exam_file = os.path.join(BASE_DIR, "exam_timeslot.csv")
-if os.path.exists(exam_file):
+# Load exam dataset
+try:
     exams_df = pd.read_csv(exam_file)
     st.success("Exam dataset loaded successfully!")
     st.dataframe(exams_df)
-else:
-    st.error(f"Exam dataset not found at: {exam_file}")
+except Exception as e:
+    st.error(f"Failed to load exam dataset: {e}")
     st.stop()
 
-# Classroom dataset
-room_file = os.path.join(BASE_DIR, "classrooms.csv")
-if os.path.exists(room_file):
+# Load classroom dataset
+try:
     rooms_df = pd.read_csv(room_file)
     st.success("Classroom dataset loaded successfully!")
     st.dataframe(rooms_df)
-else:
-    st.error(f"Classroom dataset not found at: {room_file}")
+except Exception as e:
+    st.error(f"Failed to load classroom dataset: {e}")
     st.stop()
 
 # -------------------- Convert Datasets --------------------
@@ -65,7 +64,7 @@ def generate_solution(exams, rooms):
         solution.append({
             "course_code": exam["exam_id"],
             "num_students": exam["num_students"],
-            "exam_day": exam.get("exam_day", 1),  # default if not in CSV
+            "exam_day": exam.get("exam_day", 1),
             "exam_time": exam.get("exam_time", "09:00"),
             "building_name": room.get("building_name", "BuildingA"),
             "room_number": room["classroom_id"],
@@ -75,7 +74,6 @@ def generate_solution(exams, rooms):
 
 # -------------------- ABC Algorithm --------------------
 def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit, alpha=50, beta=5):
-    # Initialize population
     population = [generate_solution(exams, rooms) for _ in range(num_bees)]
     fitness_values = []
     cost_values = []
@@ -85,19 +83,15 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit, alpha=5
         fitness_values.append(fitness)
         cost_values.append(cost)
 
-    # Best solution
     best_index = cost_values.index(min(cost_values))
     best_solution = population[best_index]
     best_cost = cost_values[best_index]
 
     convergence_curve = []
     trial_counter = [0] * num_bees
-
     start_time = time.time()
 
-    # Main loop
     for iteration in range(max_iter):
-        # Employed bees
         for i in range(num_bees):
             candidate = generate_solution(exams, rooms)
             candidate_fitness, candidate_cost = calculate_fitness(candidate, alpha, beta)
@@ -108,7 +102,7 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit, alpha=5
                 trial_counter[i] = 0
             else:
                 trial_counter[i] += 1
-# Scout bees
+
         for i in range(num_bees):
             if trial_counter[i] > scout_limit:
                 population[i] = generate_solution(exams, rooms)
@@ -116,17 +110,14 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit, alpha=5
                 fitness_values[i] = fitness
                 cost_values[i] = cost
                 trial_counter[i] = 0
-
-        # Update best
-        current_best_index = cost_values.index(min(cost_values))
+current_best_index = cost_values.index(min(cost_values))
         if cost_values[current_best_index] < best_cost:
             best_cost = cost_values[current_best_index]
             best_solution = population[current_best_index]
 
         convergence_curve.append(best_cost)
 
-        # Optional: print progress
-        if (iteration + 1) % (max_iter // 10) == 0:
+        if (iteration + 1) % max(1, (max_iter // 10)) == 0:
             st.write(f"Iteration {iteration+1}/{max_iter} | Current Best Cost: {best_cost}")
 
     elapsed = time.time() - start_time
@@ -167,7 +158,7 @@ if st.button("Run ABC"):
     st.dataframe(result_df)
 
     # Save final schedule
-    output_csv = os.path.join(BASE_DIR, "abc_exam_schedule.csv")
+    output_csv = "C:/Users/ASUS/Documents/ce project/abc_exam_schedule.csv"
     result_df.to_csv(output_csv, index=False)
     st.success(f"Final schedule saved to {output_csv}")
 
@@ -176,6 +167,10 @@ if st.button("Run ABC"):
     st.line_chart(convergence)
 
 st.info(
+    "This project demonstrates multi-objective optimization in exam scheduling "
+    "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
+    "using ABC (Artificial Bee Colony)."
+)
     "This project demonstrates multi-objective optimization in exam scheduling "
     "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
     "using ABC (Artificial Bee Colony)."
