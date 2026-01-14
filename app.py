@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from abc_algorithm import artificial_bee_colony
+from abc_algorithm import artificial_bee_colony, calculate_fitness
 
 st.set_page_config(page_title="ABC Exam Timetabling", layout="wide")
 
