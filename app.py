@@ -12,8 +12,8 @@ st.title("University Exam Scheduling using ABC (Artificial Bee Colony)")
 st.subheader("Exam and Classroom Dataset")
 
 # Set your full file paths here
-exam_file = "exam_timeslot.csv"
-room_file = "classrooms.csv"
+exam_file = "C:/Users/ASUS/Documents/ce project/exam_timeslot.csv"
+room_file = "C:/Users/ASUS/Documents/ce project/classrooms.csv"
 
 # Load exam dataset
 try:
@@ -110,8 +110,9 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit, alpha=5
                 fitness_values[i] = fitness
                 cost_values[i] = cost
                 trial_counter[i] = 0
-    current_best_index = cost_values.index(min(cost_values))
-    if cost_values[current_best_index] < best_cost:
+
+        current_best_index = cost_values.index(min(cost_values))
+        if cost_values[current_best_index] < best_cost:
             best_cost = cost_values[current_best_index]
             best_solution = population[current_best_index]
 
@@ -170,8 +171,7 @@ st.info(
     "This project demonstrates multi-objective optimization in exam scheduling "
     "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
     "using ABC (Artificial Bee Colony)."
-)
-    "This project demonstrates multi-objective optimization in exam scheduling "
+)-objective optimization in exam scheduling "
     "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
     "using ABC (Artificial Bee Colony)."
 )
