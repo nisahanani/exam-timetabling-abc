@@ -1,14 +1,25 @@
-def calculate_fitness(schedule):
+def calculate_fitness(schedule, alpha=50, beta=5):
     """
-    Higher fitness value indicates a better solution.
-    Penalties are applied for room capacity violations and conflicts.
+    Fitness function aligned with project objectives:
+    - Hard constraint: capacity violation
+    - Soft constraint: wasted classroom capacity
     """
-    conflicts = 0
-    capacity_penalty = 0
+
+    capacity_violation = 0
+    wasted_capacity = 0
 
     for s in schedule:
-        if s["num_students"] > s["capacity"]:
-            capacity_penalty += (s["num_students"] - s["capacity"])
+        students = s["num_students"]
+        capacity = s["capacity"]
 
-    fitness = 1 / (1 + conflicts + capacity_penalty)
+        if capacity < students:
+            capacity_violation += (students - capacity)
+        else:
+            wasted_capacity += (capacity - students)
+
+    total_cost = alpha * capacity_violation + beta * wasted_capacity
+
+    # ABC maximizes fitness, so convert cost to fitness
+    fitness = 1 / (1 + total_cost)
+
     return fitness
