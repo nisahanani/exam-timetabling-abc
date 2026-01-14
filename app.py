@@ -158,7 +158,7 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
 st.sidebar.header("ABC Parameters")
 
 colony_size = st.sidebar.slider("Number of Bees (Colony Size)", 10, 100, 50, 5)
-max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
+max_iteration = st.sidebar.slider("Max Iteration", 50, 300, 150, 25)
 scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 20, 5)
 
 st.sidebar.markdown("### Objective Weights")
@@ -193,8 +193,8 @@ if st.button("🚀 Run ABC Optimization"):
     st.subheader("📈 ABC Convergence Curve")
     fig, ax = plt.subplots()
     ax.plot(history)
-    ax.set_xlabel("Cycle")
-    ax.set_ylabel("Total Cost")
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Best Fitness")
     ax.set_title("ABC Convergence Curve")
     st.pyplot(fig)
 
