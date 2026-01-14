@@ -3,39 +3,40 @@
 import streamlit as st
 import pandas as pd
 import random
+import os
 import time
 
 st.set_page_config(page_title="Exam Scheduling with ABC", layout="wide")
 st.title("University Exam Scheduling using ABC (Artificial Bee Colony)")
 
-# -------------------- Load Datasets (Direct Paths) --------------------
+# -------------------- Load Datasets --------------------
 st.subheader("Exam and Classroom Dataset")
 
-# Set your full file paths here
-exam_file = "exam_timeslot.csv"
-room_file = "classrooms.csv"
+# Relative paths (put your CSVs in the same folder or a subfolder 'data')
+exam_file = os.path.join("data", "exam_timeslot.csv")
+room_file = os.path.join("data", "classrooms.csv")
 
 # Load exam dataset
-try:
+if os.path.exists(exam_file):
     exams_df = pd.read_csv(exam_file)
     st.success("Exam dataset loaded successfully!")
     st.dataframe(exams_df)
-except Exception as e:
-    st.error(f"Failed to load exam dataset: {e}")
+else:
+    st.error(f"Exam dataset not found at: {exam_file}")
     st.stop()
 
 # Load classroom dataset
-try:
+if os.path.exists(room_file):
     rooms_df = pd.read_csv(room_file)
     st.success("Classroom dataset loaded successfully!")
     st.dataframe(rooms_df)
-except Exception as e:
-    st.error(f"Failed to load classroom dataset: {e}")
+else:
+    st.error(f"Classroom dataset not found at: {room_file}")
     st.stop()
 
 # -------------------- Convert Datasets --------------------
-exam_list = exams_df.to_dict('records')
-room_list = rooms_df.to_dict('records')
+exam_list = exams_df.to_dict("records")
+room_list = rooms_df.to_dict("records")
 
 # -------------------- Cost and Fitness Functions --------------------
 def calculate_cost(schedule, alpha=50, beta=5):
@@ -49,10 +50,10 @@ def calculate_cost(schedule, alpha=50, beta=5):
         else:
             wasted_capacity += (capacity - students)
     total_cost = alpha * capacity_violation + beta * wasted_capacity
-    return total_cost
+    return total_cost, capacity_violation, wasted_capacity
 
 def calculate_fitness(schedule, alpha=50, beta=5):
-    cost = calculate_cost(schedule, alpha, beta)
+    cost, _, _ = calculate_cost(schedule, alpha, beta)
     fitness = 1 / (1 + cost)
     return fitness, cost
 
@@ -158,20 +159,19 @@ if st.button("Run ABC"):
     st.subheader("Final Exam Schedule")
     st.dataframe(result_df)
 
-    # Save final schedule
-    output_csv = "C:/Users/ASUS/Documents/ce project/abc_exam_schedule.csv"
+    # -------------------- Save CSV --------------------
+    save_dir = "results"
+    os.makedirs(save_dir, exist_ok=True)  # Create folder if it doesn't exist
+    output_csv = os.path.join(save_dir, "abc_exam_schedule.csv")
     result_df.to_csv(output_csv, index=False)
     st.success(f"Final schedule saved to {output_csv}")
 
-    # Plot convergence (final cost)
+    # -------------------- Convergence Curve --------------------
     st.subheader("Convergence Curve (Best Cost)")
     st.line_chart(convergence)
 
 st.info(
     "This project demonstrates multi-objective optimization in exam scheduling "
-    "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
-    "using ABC (Artificial Bee Colony)."
-    "objective optimization in exam scheduling "
     "by balancing capacity violations (hard constraint) and wasted classroom capacity (soft constraint) "
     "using ABC (Artificial Bee Colony)."
 )
