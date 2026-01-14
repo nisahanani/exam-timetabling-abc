@@ -148,4 +148,66 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
 # ==============================
 st.sidebar.header("ABC Parameters")
 
-colony_size = st.sidebar.slider("Number of
+colony_size = st.sidebar.slider("Number of Bees (Colony Size)", 10, 100, 50, 5)
+max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
+scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 20, 5)
+
+st.sidebar.markdown("### Objective Weights")
+alpha = st.sidebar.slider("Capacity Violation Weight (α)", 10, 100, 50)
+beta = st.sidebar.slider("Wasted Capacity Weight (β)", 1, 20, 5)
+
+# ==============================
+# Run ABC
+# ==============================
+if st.button("🚀 Run ABC Optimization"):
+    with st.spinner("Running Artificial Bee Colony..."):
+        best_solution, best_cost, history, elapsed = artificial_bee_colony(
+            colony_size, max_cycles, scout_limit, alpha, beta
+        )
+
+    cost, cap_violations, wasted = calculate_cost(best_solution, alpha, beta)
+
+    # ==============================
+    # Metrics
+    # ==============================
+    st.subheader("📌 Final Optimization Results")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Final Cost", round(cost, 2))
+    col2.metric("Capacity Violations", cap_violations)
+    col3.metric("Wasted Capacity", wasted)
+
+    # ==============================
+    # Convergence Curve
+    # ==============================
+    st.subheader("📈 ABC Convergence Curve")
+    fig, ax = plt.subplots()
+    ax.plot(history)
+    ax.set_xlabel("Cycle")
+    ax.set_ylabel("Cost")
+    ax.set_title("ABC Convergence Curve")
+    st.pyplot(fig)
+
+    # ==============================
+    # Final Schedule
+    # ==============================
+    st.subheader("🗓️ Optimized Exam Schedule")
+    result_df = pd.DataFrame([
+        {
+            "Exam ID": e,
+            "Course Code": course_code[e],
+            "Students": num_students[e],
+            "Classroom": r,
+            "Room Capacity": room_capacity[r]
+        } for e, r in best_solution.items()
+    ])
+    st.dataframe(result_df, use_container_width=True)
+
+# ==============================
+# Footer
+# ==============================
+st.markdown(
+    "---\n"
+    "**Course:** JIE42903 – Evolutionary Computing  \n"
+    "**Algorithm:** Artificial Bee Colony (ABC)  \n"
+    "**Case Study:** University Exam Scheduling"
+)
