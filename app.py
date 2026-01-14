@@ -40,6 +40,7 @@ rooms.columns = rooms.columns.str.lower()
 # ==============================
 exam_ids = exams["exam_id"].tolist()
 room_ids = rooms["classroom_id"].tolist()
+
 num_students = dict(zip(exams["exam_id"], exams["num_students"]))
 room_capacity = dict(zip(rooms["classroom_id"], rooms["capacity"]))
 course_code = dict(zip(exams["exam_id"], exams["course_code"]))
@@ -50,17 +51,19 @@ course_code = dict(zip(exams["exam_id"], exams["course_code"]))
 def calculate_cost(schedule, alpha, beta):
     capacity_violation = 0
     wasted_capacity = 0
+
     for exam, room in schedule.items():
         students = num_students[exam]
         capacity = room_capacity[room]
 
         if students > capacity:
-            capacity_violation += (students - capacity)  # magnitude of violation
+            capacity_violation += (students - capacity)
         else:
             wasted_capacity += (capacity - students)
 
     total_cost = alpha * capacity_violation + beta * wasted_capacity
     return total_cost, capacity_violation, wasted_capacity
+
 
 def fitness(schedule, alpha, beta):
     cost, _, _ = calculate_cost(schedule, alpha, beta)
@@ -70,19 +73,21 @@ def fitness(schedule, alpha, beta):
 # ABC Helper Functions
 # ==============================
 def generate_solution():
-    """Generate a random initial solution"""
     return {exam: random.choice(room_ids) for exam in exam_ids}
 
+
 def neighbor_solution(solution):
-    """Generate a neighbor solution"""
     new_solution = solution.copy()
     exam = random.choice(exam_ids)
 
-    # Mostly random selection to allow violations
-    if random.random() < 0.8:  # 80% chance random room
+    # Encourage exploration (allow violations)
+    if random.random() < 0.8:
         new_solution[exam] = random.choice(room_ids)
-    else:  # 20% smart choice: room closest to students
-        room_options = sorted(room_ids, key=lambda r: abs(room_capacity[r] - num_students[exam]))
+    else:
+        room_options = sorted(
+            room_ids,
+            key=lambda r: abs(room_capacity[r] - num_students[exam])
+        )
         new_solution[exam] = room_options[0]
 
     return new_solution
@@ -92,6 +97,7 @@ def neighbor_solution(solution):
 # ==============================
 def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
     start_time = time.time()
+
     food_sources = [generate_solution() for _ in range(colony_size)]
     trials = [0] * colony_size
 
@@ -100,7 +106,8 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
     convergence = []
 
     for cycle in range(max_cycles):
-        # Employed Bees
+
+        # Employed Bees Phase
         for i in range(colony_size):
             candidate = neighbor_solution(food_sources[i])
             if fitness(candidate, alpha, beta) > fitness(food_sources[i], alpha, beta):
@@ -109,9 +116,10 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
             else:
                 trials[i] += 1
 
-        # Onlooker Bees
+        # Onlooker Bees Phase
         probabilities = [fitness(sol, alpha, beta) for sol in food_sources]
         total_prob = sum(probabilities)
+
         for _ in range(colony_size):
             r = random.uniform(0, total_prob)
             acc = 0
@@ -126,13 +134,13 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
                         trials[i] += 1
                     break
 
-        # Scout Bees
+        # Scout Bees Phase
         for i in range(colony_size):
             if trials[i] > scout_limit:
                 food_sources[i] = generate_solution()
                 trials[i] = 0
 
-        # Update best solution
+        # Update Best Solution
         for sol in food_sources:
             cost, _, _ = calculate_cost(sol, alpha, beta)
             if cost < best_cost:
@@ -141,13 +149,14 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
 
         convergence.append(best_cost)
 
-    elapsed = time.time() - start_time
-    return best_solution, best_cost, convergence, elapsed
+    elapsed_time = time.time() - start_time
+    return best_solution, best_cost, convergence, elapsed_time
 
 # ==============================
 # Sidebar Parameters
 # ==============================
 st.sidebar.header("ABC Parameters")
+
 colony_size = st.sidebar.slider("Number of Bees (Colony Size)", 10, 100, 50, 5)
 max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
 scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 20, 5)
@@ -167,14 +176,20 @@ if st.button("🚀 Run ABC Optimization"):
 
     cost, cap_violations, wasted = calculate_cost(best_solution, alpha, beta)
 
+    # ==============================
     # Metrics
+    # ==============================
     st.subheader("📌 Final Optimization Results")
-    col1, col2, col3 = st.columns(3)
+
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Final Cost", round(cost, 2))
     col2.metric("Capacity Violations", cap_violations)
     col3.metric("Wasted Capacity", wasted)
+    col4.metric("Computation Time (s)", f"{elapsed:.3f}")
 
+    # ==============================
     # Convergence Curve
+    # ==============================
     st.subheader("📈 ABC Convergence Curve")
     fig, ax = plt.subplots()
     ax.plot(history)
@@ -183,7 +198,9 @@ if st.button("🚀 Run ABC Optimization"):
     ax.set_title("ABC Convergence Curve")
     st.pyplot(fig)
 
+    # ==============================
     # Final Schedule
+    # ==============================
     st.subheader("🗓️ Optimized Exam Schedule")
     result_df = pd.DataFrame([
         {
@@ -192,11 +209,14 @@ if st.button("🚀 Run ABC Optimization"):
             "Students": num_students[e],
             "Classroom": r,
             "Room Capacity": room_capacity[r]
-        } for e, r in best_solution.items()
+        }
+        for e, r in best_solution.items()
     ])
     st.dataframe(result_df, use_container_width=True)
 
+# ==============================
 # Footer
+# ==============================
 st.markdown(
     "---\n"
     "**Course:** JIE42903 – Evolutionary Computing  \n"
