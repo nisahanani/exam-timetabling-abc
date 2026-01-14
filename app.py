@@ -55,7 +55,7 @@ def calculate_cost(schedule, alpha, beta):
         if students > capacity:
             capacity_violations += 1
         else:
-            wasted_capacity += (capacity - students) / capacity
+            wasted_capacity += (capacity - students) 
 
     total_cost = alpha * capacity_violations + beta * wasted_capacity
     return total_cost, capacity_violations, wasted_capacity
