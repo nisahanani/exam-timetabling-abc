@@ -81,12 +81,13 @@ def neighbor_solution(solution):
 # Artificial Bee Colony Algorithm
 # ==============================
 def artificial_bee_colony(
-    colony_size, max_cycles, scout_limit, alpha, beta
+    num_bees, num_food_sources, max_cycles, scout_limit, alpha, beta
 ):
     start_time = time.time()
 
-    food_sources = [generate_solution() for _ in range(colony_size)]
-    trials = [0] * colony_size
+    # Initialize food sources (solutions)
+    food_sources = [generate_solution() for _ in range(num_food_sources)]
+    trials = [0] * num_food_sources
 
     best_solution = None
     best_cost = float("inf")
@@ -95,7 +96,7 @@ def artificial_bee_colony(
     for cycle in range(max_cycles):
 
         # Employed Bees Phase
-        for i in range(colony_size):
+        for i in range(num_food_sources):
             candidate = neighbor_solution(food_sources[i])
             if fitness(candidate, alpha, beta) > fitness(food_sources[i], alpha, beta):
                 food_sources[i] = candidate
@@ -104,12 +105,10 @@ def artificial_bee_colony(
                 trials[i] += 1
 
         # Onlooker Bees Phase
-        probabilities = [
-            fitness(sol, alpha, beta) for sol in food_sources
-        ]
+        probabilities = [fitness(sol, alpha, beta) for sol in food_sources]
         total_prob = sum(probabilities)
 
-        for _ in range(colony_size):
+        for _ in range(num_bees):
             r = random.uniform(0, total_prob)
             acc = 0
             for i, prob in enumerate(probabilities):
@@ -124,7 +123,7 @@ def artificial_bee_colony(
                     break
 
         # Scout Bees Phase
-        for i in range(colony_size):
+        for i in range(num_food_sources):
             if trials[i] > scout_limit:
                 food_sources[i] = generate_solution()
                 trials[i] = 0
@@ -146,7 +145,8 @@ def artificial_bee_colony(
 # ==============================
 st.sidebar.header("ABC Parameters")
 
-colony_size = st.sidebar.slider("Colony Size", 10, 100, 40, 5)
+num_bees = st.sidebar.slider("Number of Bees", 10, 100, 40, 5)
+num_food_sources = st.sidebar.slider("Number of Food Sources", 5, 50, 20, 5)
 max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
 scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 10, 5)
 
@@ -161,7 +161,7 @@ if st.button("🚀 Run ABC Optimization"):
 
     with st.spinner("Running Artificial Bee Colony Optimization..."):
         best_solution, best_cost, history, elapsed = artificial_bee_colony(
-            colony_size, max_cycles, scout_limit, alpha, beta
+            num_bees, num_food_sources, max_cycles, scout_limit, alpha, beta
         )
 
     cost, cap_violations, wasted = calculate_cost(best_solution, alpha, beta)
