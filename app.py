@@ -110,8 +110,8 @@ def artificial_bee_colony(exams, rooms, num_bees, max_iter, scout_limit, alpha=5
                 fitness_values[i] = fitness
                 cost_values[i] = cost
                 trial_counter[i] = 0
-current_best_index = cost_values.index(min(cost_values))
-        if cost_values[current_best_index] < best_cost:
+    current_best_index = cost_values.index(min(cost_values))
+    if cost_values[current_best_index] < best_cost:
             best_cost = cost_values[current_best_index]
             best_solution = population[current_best_index]
 
