@@ -3,32 +3,27 @@ import pandas as pd
 import random
 import time
 import matplotlib.pyplot as plt
+import os
 
 # ==============================
 # Page Configuration
 # ==============================
 st.set_page_config(page_title="Exam Scheduling using ABC", layout="wide")
-
 st.title("🐝 University Exam Scheduling using Artificial Bee Colony")
 st.write(
     "This application optimizes university exam timetables using the "
-    "Artificial Bee Colony (ABC) algorithm while considering student numbers "
+    "Artificial Bee Colony (ABC) algorithm considering student numbers "
     "and classroom capacity constraints."
 )
-
-# ==============================
-# Set Random Seed for Reproducibility
-# ==============================
-SEED = 42
-random.seed(SEED)
 
 # ==============================
 # Load Data
 # ==============================
 @st.cache_data
 def load_data():
-    exams = pd.read_csv("exam_timeslot.csv")
-    rooms = pd.read_csv("classrooms.csv")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    exams = pd.read_csv(os.path.join(BASE_DIR, "exam_timeslot.csv"))
+    rooms = pd.read_csv(os.path.join(BASE_DIR, "classrooms.csv"))
     return exams, rooms
 
 exams, rooms = load_data()
@@ -42,10 +37,8 @@ rooms.columns = rooms.columns.str.lower()
 # ==============================
 exam_ids = exams["exam_id"].tolist()
 room_ids = rooms["classroom_id"].tolist()
-
 num_students = dict(zip(exams["exam_id"], exams["num_students"]))
 room_capacity = dict(zip(rooms["classroom_id"], rooms["capacity"]))
-
 course_code = dict(zip(exams["exam_id"], exams["course_code"]))
 
 # ==============================
@@ -78,32 +71,36 @@ def generate_solution():
     return {exam: random.choice(room_ids) for exam in exam_ids}
 
 def neighbor_solution(solution):
+    # smarter neighbor: prefer rooms close to number of students
     new_solution = solution.copy()
-    for _ in range(2):  # Modify 2 exams randomly
-        exam = random.choice(exam_ids)
+    exam = random.choice(exam_ids)
+    # choose room with probability weighted by closeness in size
+    room_options = room_ids.copy()
+    room_options.sort(key=lambda r: abs(room_capacity[r] - num_students[exam]))
+    # 70% chance pick best fitting room, 30% random
+    if random.random() < 0.7:
+        new_solution[exam] = room_options[0]
+    else:
         new_solution[exam] = random.choice(room_ids)
     return new_solution
 
 # ==============================
 # Artificial Bee Colony Algorithm
 # ==============================
-def artificial_bee_colony(
-    num_bees, num_food_sources, max_cycles, scout_limit, alpha, beta
-):
+def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
     start_time = time.time()
 
     # Initialize food sources
-    food_sources = [generate_solution() for _ in range(num_food_sources)]
-    trials = [0] * num_food_sources
+    food_sources = [generate_solution() for _ in range(colony_size)]
+    trials = [0] * colony_size
 
     best_solution = None
     best_cost = float("inf")
     convergence = []
 
     for cycle in range(max_cycles):
-
         # Employed Bees Phase
-        for i in range(num_food_sources):
+        for i in range(colony_size):
             candidate = neighbor_solution(food_sources[i])
             if fitness(candidate, alpha, beta) > fitness(food_sources[i], alpha, beta):
                 food_sources[i] = candidate
@@ -114,8 +111,7 @@ def artificial_bee_colony(
         # Onlooker Bees Phase
         probabilities = [fitness(sol, alpha, beta) for sol in food_sources]
         total_prob = sum(probabilities)
-
-        for _ in range(num_food_sources):
+        for _ in range(colony_size):
             r = random.uniform(0, total_prob)
             acc = 0
             for i, prob in enumerate(probabilities):
@@ -130,7 +126,7 @@ def artificial_bee_colony(
                     break
 
         # Scout Bees Phase
-        for i in range(num_food_sources):
+        for i in range(colony_size):
             if trials[i] > scout_limit:
                 food_sources[i] = generate_solution()
                 trials[i] = 0
@@ -152,8 +148,7 @@ def artificial_bee_colony(
 # ==============================
 st.sidebar.header("ABC Parameters")
 
-num_bees = st.sidebar.slider("Number of Bees", 10, 100, 30, 5)
-num_food_sources = st.sidebar.slider("Number of Food Sources", 5, 50, 15, 1)
+colony_size = st.sidebar.slider("Number of Bees (Colony Size)", 10, 100, 50, 5)
 max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
 scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 20, 5)
 
@@ -168,7 +163,7 @@ if st.button("🚀 Run ABC Optimization"):
 
     with st.spinner("Running Artificial Bee Colony Optimization..."):
         best_solution, best_cost, history, elapsed = artificial_bee_colony(
-            num_bees, num_food_sources, max_cycles, scout_limit, alpha, beta
+            colony_size, max_cycles, scout_limit, alpha, beta
         )
 
     cost, cap_violations, wasted = calculate_cost(best_solution, alpha, beta)
@@ -177,7 +172,6 @@ if st.button("🚀 Run ABC Optimization"):
     # Metrics
     # ==============================
     st.subheader("📌 Final Optimization Results")
-
     col1, col2, col3 = st.columns(3)
     col1.metric("Final Cost", round(cost, 2))
     col2.metric("Capacity Violations", cap_violations)
@@ -198,7 +192,6 @@ if st.button("🚀 Run ABC Optimization"):
     # Final Schedule
     # ==============================
     st.subheader("🗓️ Optimized Exam Schedule")
-
     result_df = pd.DataFrame([
         {
             "Exam ID": e,
@@ -209,7 +202,6 @@ if st.button("🚀 Run ABC Optimization"):
         }
         for e, r in best_solution.items()
     ])
-
     st.dataframe(result_df, use_container_width=True)
 
 # ==============================
