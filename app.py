@@ -13,8 +13,8 @@ st.title("University Exam Scheduling using ABC (Artificial Bee Colony)")
 st.subheader("Exam and Classroom Dataset")
 
 # Relative paths (put your CSVs in the same folder or a subfolder 'data')
-exam_file = os.path.join("data", "exam_timeslot.csv")
-room_file = os.path.join("data", "classrooms.csv")
+exam_file = os.path.join("exam_timeslot.csv")
+room_file = os.path.join("classrooms.csv")
 
 # Load exam dataset
 if os.path.exists(exam_file):
