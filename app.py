@@ -45,23 +45,22 @@ room_capacity = dict(zip(rooms["classroom_id"], rooms["capacity"]))
 course_code = dict(zip(exams["exam_id"], exams["course_code"]))
 
 # ==============================
-# Cost & Metrics
+# Cost Function & Fitness
 # ==============================
 def calculate_cost(schedule, alpha, beta):
-    capacity_violations = 0
+    capacity_violation = 0
     wasted_capacity = 0
-
     for exam, room in schedule.items():
         students = num_students[exam]
         capacity = room_capacity[room]
 
         if students > capacity:
-            capacity_violations += 1
+            capacity_violation += (students - capacity)  # magnitude of violation
         else:
             wasted_capacity += (capacity - students)
 
-    total_cost = alpha * capacity_violations + beta * wasted_capacity
-    return total_cost, capacity_violations, wasted_capacity
+    total_cost = alpha * capacity_violation + beta * wasted_capacity
+    return total_cost, capacity_violation, wasted_capacity
 
 def fitness(schedule, alpha, beta):
     cost, _, _ = calculate_cost(schedule, alpha, beta)
@@ -71,21 +70,18 @@ def fitness(schedule, alpha, beta):
 # ABC Helper Functions
 # ==============================
 def generate_solution():
+    """Generate a random initial solution"""
     return {exam: random.choice(room_ids) for exam in exam_ids}
 
 def neighbor_solution(solution):
+    """Generate a neighbor solution"""
     new_solution = solution.copy()
     exam = random.choice(exam_ids)
 
-    # 30% chance to intentionally pick a too-small room to create a violation
-    if random.random() < 0.3:
-        smaller_rooms = [r for r in room_ids if room_capacity[r] < num_students[exam]]
-        if smaller_rooms:
-            new_solution[exam] = random.choice(smaller_rooms)
-        else:
-            new_solution[exam] = random.choice(room_ids)
-    else:
-        # Pick the closest-fit room (safe)
+    # Mostly random selection to allow violations
+    if random.random() < 0.8:  # 80% chance random room
+        new_solution[exam] = random.choice(room_ids)
+    else:  # 20% smart choice: room closest to students
         room_options = sorted(room_ids, key=lambda r: abs(room_capacity[r] - num_students[exam]))
         new_solution[exam] = room_options[0]
 
@@ -152,7 +148,6 @@ def artificial_bee_colony(colony_size, max_cycles, scout_limit, alpha, beta):
 # Sidebar Parameters
 # ==============================
 st.sidebar.header("ABC Parameters")
-
 colony_size = st.sidebar.slider("Number of Bees (Colony Size)", 10, 100, 50, 5)
 max_cycles = st.sidebar.slider("Max Cycles", 50, 300, 150, 25)
 scout_limit = st.sidebar.slider("Scout Limit", 5, 50, 20, 5)
@@ -172,29 +167,23 @@ if st.button("🚀 Run ABC Optimization"):
 
     cost, cap_violations, wasted = calculate_cost(best_solution, alpha, beta)
 
-    # ==============================
     # Metrics
-    # ==============================
     st.subheader("📌 Final Optimization Results")
     col1, col2, col3 = st.columns(3)
     col1.metric("Final Cost", round(cost, 2))
     col2.metric("Capacity Violations", cap_violations)
     col3.metric("Wasted Capacity", wasted)
 
-    # ==============================
     # Convergence Curve
-    # ==============================
     st.subheader("📈 ABC Convergence Curve")
     fig, ax = plt.subplots()
     ax.plot(history)
     ax.set_xlabel("Cycle")
-    ax.set_ylabel("Cost")
+    ax.set_ylabel("Total Cost")
     ax.set_title("ABC Convergence Curve")
     st.pyplot(fig)
 
-    # ==============================
     # Final Schedule
-    # ==============================
     st.subheader("🗓️ Optimized Exam Schedule")
     result_df = pd.DataFrame([
         {
@@ -207,9 +196,7 @@ if st.button("🚀 Run ABC Optimization"):
     ])
     st.dataframe(result_df, use_container_width=True)
 
-# ==============================
 # Footer
-# ==============================
 st.markdown(
     "---\n"
     "**Course:** JIE42903 – Evolutionary Computing  \n"
